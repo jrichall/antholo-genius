@@ -49,9 +49,12 @@ a { color: inherit; text-decoration: none; }
 .badge.novella { background: var(--soft); color: var(--ink); }
 .badge.muted { background: var(--line); color: var(--muted); }
 
-.row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.row-main { display: flex; gap: 12px; align-items: center; }
+.row-main.plain { width: 100%; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; min-height: 44px; }
+.row-text { flex: 1; min-width: 0; }
 .row.novella { margin-left: 20px; }
-.row .cover { width: 44px; height: 66px; border-radius: 8px; object-fit: cover; background: var(--line); flex: none; }
+.cover { width: 44px; height: 66px; border-radius: 8px; object-fit: cover; background: var(--line); flex: none; }
 .row h3 { font-size: 16px; font-weight: 600; }
 .row .meta { font-size: 13px; color: var(--muted); }
 
@@ -61,3 +64,46 @@ h2.section { font-size: 18px; margin: 24px 0 4px; }
 .tabbar { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 4px; padding: 6px; border-radius: 999px; background: var(--primary); }
 .tabbar a { min-height: 44px; min-width: 88px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; border-radius: 999px; color: var(--on-primary); font-weight: 600; }
 .tabbar a.active { background: var(--on-primary); color: var(--primary); }
+
+.inline-btn { display: inline-flex; align-items: center; }
+.small { font-size: 13px; }
+.cover.big { width: 64px; height: 96px; border-radius: 10px; object-fit: cover; background: var(--line); flex: none; display: block; }
+
+.pill { font-family: var(--font-head); font-weight: 600; font-size: 13px; padding: 2px 10px; border-radius: 999px; background: var(--primary); color: var(--on-primary); white-space: nowrap; }
+.pill.accent { background: var(--accent); color: var(--on-accent); }
+.pill.soft { background: var(--soft); color: var(--ink); }
+.check { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; }
+.icon-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; background: none; border: 0; cursor: pointer; flex: none; }
+
+.scard { display: flex; gap: 14px; align-items: flex-start; border-radius: 18px; }
+.scard-body { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.scard-body h3 { font-size: 18px; font-weight: 600; }
+.scard .meta, .scard .next { font-size: 14px; }
+.scard .meta { color: var(--muted); }
+.next { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.progress { height: 8px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+.progress span { display: block; height: 100%; background: var(--primary); }
+
+.panel { padding: 8px 0 4px; display: grid; gap: 14px; }
+.controls { display: grid; gap: 12px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.seg button { min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: none; cursor: pointer; font-weight: 600; }
+.seg button[aria-pressed='true'] { background: var(--primary); color: var(--on-primary); }
+.seg button:disabled { opacity: .6; cursor: default; }
+.search + .error, .seg + .search { margin-top: 12px; }
+
+.stars { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stars > div { display: flex; }
+.star { width: 40px; height: 44px; display: inline-flex; align-items: center; justify-content: center; background: none; border: 0; cursor: pointer; padding: 0; }
+.star:disabled { opacity: .6; cursor: default; }
+
+.field { display: grid; gap: 4px; font-size: 14px; }
+.field textarea, .field input { padding: 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); width: 100%; }
+.field textarea { resize: vertical; }
+.field .inline { display: flex; gap: 8px; align-items: center; }
+.field .inline input { flex: 1; min-height: 44px; border-radius: 999px; }
+.edit { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
+
+.sheet { position: fixed; inset: 0; background: rgba(42, 26, 31, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; z-index: 10; }
+.sheet-body { width: 100%; max-width: 480px; display: grid; gap: 10px; }
+.sheet-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

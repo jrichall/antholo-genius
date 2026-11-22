@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
-import { isComingSoon } from '../../shared/importFilter';
-import { labelEntries } from '../../shared/numbering';
+import { partitionEntries, seriesStats } from '../../shared/progress';
+import { parsePositionOverride } from '../../shared/tracking';
+import { toEntries } from '../seriesView';
 import * as q from '../db/queries';
 import { trackSeries } from '../import';
 import { HardcoverAuthError, TOKEN_EXPIRED_MESSAGE } from '../sources/hardcover';
@@ -25,44 +26,45 @@ seriesRoutes.get('/:id', async (c) => {
   const series = await q.getSeriesById(c.env.DB, Number(c.req.param('id')));
   if (!series) return c.json({ error: 'not_found' }, 404);
   const today = new Date().toISOString().slice(0, 10);
-  const rows = await q.listSeriesBooks(c.env.DB, series.id);
-
-  const labelled = labelEntries(
-    rows.map((r) => ({ id: r.book_id, position: r.position, positionOverride: r.position_override, releaseDate: r.release_date, row: r }))
-  ).map(({ row: r, label }) => ({
-    id: r.book_id,
-    title: r.title,
-    label,
-    kind: label === null ? 'extra' : r.kind,
-    releaseDate: r.release_date,
-    datePrecision: r.date_precision,
-    coverUrl: r.cover_key ? `/img/${r.cover_key}` : null,
-    safeLine: r.safe_line,
-    status: r.status ?? 'unread',
-    rating: r.rating,
-    hidden: !!r.hidden
-  }));
-
-  const visible = labelled.filter((b) => !b.hidden);
-  const extras = visible.filter((b) => b.kind === 'extra');
-  const numbered = visible.filter((b) => b.kind !== 'extra');
-  const comingSoon = numbered.filter((b) => isComingSoon(b.releaseDate, today));
-  const books = numbered.filter((b) => !isComingSoon(b.releaseDate, today));
-  const read = books.filter((b) => b.status === 'read');
-  const rated = read.filter((b) => b.rating);
-  const next = books.find((b) => b.status !== 'read' && b.status !== 'skipped') ?? null;
+  const entries = toEntries(await q.listSeriesBooks(c.env.DB, series.id));
+  const { books, comingSoon, extras, hidden } = partitionEntries(entries, today);
+  const stats = seriesStats(books);
+  const out = comingSoon[0] ?? null;
 
   return c.json({
     series: { id: series.id, name: series.name, author: series.author, lastRefreshedAt: series.last_refreshed_at },
     stats: {
-      read: read.length,
-      total: books.length,
-      avgRating: rated.length ? Math.round((rated.reduce((n, b) => n + (b.rating ?? 0), 0) / rated.length) * 10) / 10 : null,
-      upNext: next ? { label: next.label, title: next.title } : null,
-      nextOut: comingSoon[0] ? { label: comingSoon[0].label, title: comingSoon[0].title, releaseDate: comingSoon[0].releaseDate, datePrecision: comingSoon[0].datePrecision } : null
+      read: stats.read,
+      total: stats.total,
+      avgRating: stats.avgRating,
+      upNext: stats.nextUp ? { label: stats.nextUp.label, title: stats.nextUp.title } : null,
+      nextOut: out ? { label: out.label, title: out.title, releaseDate: out.releaseDate, datePrecision: out.datePrecision } : null
     },
     books,
     comingSoon,
-    extras
+    extras,
+    hidden
   });
+});
+
+// User edits: position override and hide. Locked: a refresh or re-import never writes these.
+seriesRoutes.patch('/:id/books/:bookId', async (c) => {
+  const seriesId = Number(c.req.param('id'));
+  const bookId = Number(c.req.param('bookId'));
+  const body = await c.req.json<Record<string, unknown>>().catch(() => null);
+  if (!body || typeof body !== 'object') return c.json({ error: 'bad_request', message: 'Body must be an object' }, 400);
+  const edit: { positionOverride?: number | null; hidden?: boolean } = {};
+  if ('positionOverride' in body) {
+    const p = parsePositionOverride(body.positionOverride);
+    if (!p.ok) return c.json({ error: 'bad_request', message: p.error }, 400);
+    edit.positionOverride = p.value;
+  }
+  if ('hidden' in body) {
+    if (typeof body.hidden !== 'boolean') return c.json({ error: 'bad_request', message: 'hidden must be true or false' }, 400);
+    edit.hidden = body.hidden;
+  }
+  if (!('positionOverride' in edit) && !('hidden' in edit)) return c.json({ error: 'bad_request', message: 'Nothing to update' }, 400);
+  if (!(await q.seriesBookExists(c.env.DB, seriesId, bookId))) return c.json({ error: 'not_found' }, 404);
+  await q.saveSeriesBookEdit(c.env.DB, seriesId, bookId, edit);
+  return c.json({ ok: true });
 });

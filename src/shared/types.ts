@@ -38,3 +38,11 @@ export interface SearchSeriesHit {
   booksCount: number | null;
   coverUrl: string | null;
 }
+
+export interface SearchBookHit {
+  hardcoverId: number;
+  title: string;
+  author: string | null;
+  releaseYear: number | null;
+  coverUrl: string | null;
+}

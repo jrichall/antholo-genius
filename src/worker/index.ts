@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Env } from './env';
+import { bookRoutes } from './routes/books';
 import { homeRoutes } from './routes/home';
 import { searchRoutes } from './routes/search';
 import { seriesRoutes } from './routes/series';
@@ -7,6 +8,7 @@ import { seriesRoutes } from './routes/series';
 const app = new Hono<{ Bindings: Env }>();
 
 app.route('/api/home', homeRoutes);
+app.route('/api/books', bookRoutes);
 app.route('/api/search', searchRoutes);
 app.route('/api/series', seriesRoutes);
 

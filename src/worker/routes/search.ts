@@ -1,19 +1,20 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
-import { HardcoverAuthError, TOKEN_EXPIRED_MESSAGE, searchSeries } from '../sources/hardcover';
+import { HardcoverAuthError, TOKEN_EXPIRED_MESSAGE, searchBooks, searchSeries } from '../sources/hardcover';
 
 export const searchRoutes = new Hono<{ Bindings: Env }>();
 const TTL = 60 * 60 * 24;
 
-// Phase 1: series results only. `type` is accepted for later phases.
+// type=series (default) or type=book. Author and character search land in later phases.
 searchRoutes.get('/', async (c) => {
   const q = (c.req.query('q') ?? '').trim();
   if (q.length < 2) return c.json({ results: [] });
-  const key = `series:${q.toLowerCase()}`;
+  const type = c.req.query('type') === 'book' ? 'book' : 'series';
+  const key = `${type}:${q.toLowerCase()}`;
   const cached = await c.env.SEARCH_CACHE.get(key, 'json');
   if (cached) return c.json({ results: cached, cached: true });
   try {
-    const results = await searchSeries(c.env.HARDCOVER_TOKEN, q);
+    const results = type === 'book' ? await searchBooks(c.env.HARDCOVER_TOKEN, q) : await searchSeries(c.env.HARDCOVER_TOKEN, q);
     await c.env.SEARCH_CACHE.put(key, JSON.stringify(results), { expirationTtl: TTL });
     return c.json({ results });
   } catch (e) {

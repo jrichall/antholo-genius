@@ -1,5 +1,5 @@
 // The ONLY place Hardcover is called from. Worker-side only, never the browser.
-import type { HcRow, SearchSeriesHit } from '../../shared/types';
+import type { HcRow, SearchBookHit, SearchSeriesHit } from '../../shared/types';
 import type { SeriesRecordInfo } from '../../shared/importFilter';
 
 const ENDPOINT = 'https://api.hardcover.app/v1/graphql';
@@ -182,4 +182,56 @@ export async function getBook(token: string, id: number): Promise<HcBook | null>
   );
   const b = d.books_by_pk;
   return b ? { id: b.id, title: b.title, releaseDate: b.release_date, description: b.description, coverUrl: coverFrom(b.cached_image) } : null;
+}
+
+// ---- Phase 2: single books -------------------------------------------------
+
+interface BookSearchDoc {
+  id?: number | string;
+  title?: string;
+  author_names?: string[];
+  release_year?: number | null;
+  image?: { url?: string } | string | null;
+}
+
+export async function searchBooks(token: string, q: string): Promise<SearchBookHit[]> {
+  const data = await gql<{ search: { results: { hits?: Array<{ document: BookSearchDoc }> } | null } }>(
+    token,
+    'query($q:String!){ search(query:$q, query_type:"Book", per_page:10, page:1){ results } }',
+    { q },
+    8000
+  );
+  const hits = data.search?.results?.hits ?? [];
+  return hits
+    .map((h) => h.document)
+    .filter((d) => d && d.id && d.title)
+    .map((d) => ({
+      hardcoverId: Number(d.id),
+      title: String(d.title),
+      author: d.author_names?.[0] ?? null,
+      releaseYear: d.release_year ?? null,
+      coverUrl: typeof d.image === 'string' ? d.image : d.image?.url ?? null
+    }));
+}
+
+export interface HcBookWithSeries extends HcBook { seriesIds: number[] }
+
+/** One book plus the series it belongs to (featured series first). Depth: book > book_series > series. */
+export async function getBookWithSeries(token: string, id: number): Promise<HcBookWithSeries | null> {
+  const d = await gql<{
+    books_by_pk: {
+      id: number; title: string; release_date: string | null; description: string | null; cached_image: unknown;
+      book_series: Array<{ series_id: number; featured: boolean }>;
+    } | null;
+  }>(
+    token,
+    'query($id:Int!){ books_by_pk(id:$id){ id title release_date description cached_image book_series(order_by:{featured:desc}, limit:5){ series_id featured } } }',
+    { id }
+  );
+  const b = d.books_by_pk;
+  if (!b) return null;
+  return {
+    id: b.id, title: b.title, releaseDate: b.release_date, description: b.description, coverUrl: coverFrom(b.cached_image),
+    seriesIds: b.book_series.map((r) => r.series_id)
+  };
 }

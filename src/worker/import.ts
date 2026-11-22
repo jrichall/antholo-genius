@@ -1,13 +1,16 @@
-import { importFilter, pickSeriesRecord } from '../shared/importFilter';
+import { cleanDate, importFilter, inferPrecision, pickSeriesRecord } from '../shared/importFilter';
 import type { Env } from './env';
 import * as q from './db/queries';
-import { getSeries } from './sources/hardcover';
+import { getBookWithSeries, getSeries } from './sources/hardcover';
 
 const MAX_COVERS_PER_REQUEST = 40; // keeps subrequests inside the Worker limit
 
 /** Copies cover images to R2 (the app serves them from /img/*). Failures are skipped, not fatal. */
 export async function copyCovers(env: Env, seriesId: number): Promise<void> {
-  const todo = (await q.booksNeedingCovers(env.DB, seriesId)).slice(0, MAX_COVERS_PER_REQUEST);
+  await copyCoverRows(env, (await q.booksNeedingCovers(env.DB, seriesId)).slice(0, MAX_COVERS_PER_REQUEST));
+}
+
+async function copyCoverRows(env: Env, todo: Array<{ id: number; url: string }>): Promise<void> {
   for (let i = 0; i < todo.length; i += 4) {
     await Promise.all(
       todo.slice(i, i + 4).map(async (b) => {
@@ -62,4 +65,26 @@ export async function trackSeries(env: Env, hardcoverSeriesId: number, author: s
   );
   await copyCovers(env, id);
   return id;
+}
+
+/**
+ * Tracks one book on its own. Returns the new book id. A book already in D1 makes no Hardcover call;
+ * the tracking row is created (status unread) only if there is none, so it never resets user data.
+ */
+export async function trackSingleBook(env: Env, hardcoverBookId: number): Promise<number | null> {
+  let row = await q.getBookByHardcoverId(env.DB, hardcoverBookId);
+  if (!row) {
+    const b = await getBookWithSeries(env.HARDCOVER_TOKEN, hardcoverBookId);
+    if (!b) return null;
+    const date = cleanDate(b.releaseDate);
+    await q.saveSingleBook(env.DB, {
+      hardcoverId: b.id, title: b.title, releaseDate: date, datePrecision: inferPrecision(date),
+      coverUrl: b.coverUrl, description: b.description
+    }, new Date().toISOString());
+    row = await q.getBookByHardcoverId(env.DB, hardcoverBookId);
+    if (!row) return null;
+    await copyCoverRows(env, row.cover_key === null && row.cover_source_url ? [{ id: row.id, url: row.cover_source_url }] : []);
+  }
+  await q.ensureTracking(env.DB, row.id, new Date().toISOString());
+  return row.id;
 }
