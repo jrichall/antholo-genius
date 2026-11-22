@@ -2,14 +2,16 @@
   "name": "antholo-genius",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*", "/img/*"]
   },
   "d1_databases": [
-    { "binding": "DB", "database_name": "antholo-genius", "database_id": "REPLACE_AFTER_d1_create" }
+    { "binding": "DB", "database_name": "antholo-genius", "database_id": "3055b229-14c3-4fe5-83b6-7f8d2b51df8d" }
   ],
-  "kv_namespaces": [{ "binding": "SEARCH_CACHE", "id": "REPLACE_AFTER_kv_create" }],
+  "kv_namespaces": [{ "binding": "SEARCH_CACHE", "id": "4a116b7d4637412d83372c145ad34b45" }],
   "r2_buckets": [{ "binding": "COVERS", "bucket_name": "antholo-genius-covers" }],
   "triggers": { "crons": ["17 9 * * *"] }
 }
